@@ -30,6 +30,7 @@ func longestCommonPrefix(strs []string) string {
 }
 
 //better solution ->0ms level
+/*
 func longestCommonPrefix(strs []string) string {
 	if len(strs) == 0 {
 		return ""
@@ -55,3 +56,4 @@ func longestCommonPrefix(strs []string) string {
 
 	return ""
 }
+*/
