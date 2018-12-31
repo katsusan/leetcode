@@ -65,7 +65,6 @@ func maxProfit1(prices []int) int {
 			max = seg
 		}
 	}
-
 	return max
 
 }
