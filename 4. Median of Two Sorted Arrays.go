@@ -1,13 +1,10 @@
 package main
 
-import "fmt"
-
+//time complexity: O(m+n)
 func findMedianSortedArrays(nums1 []int, nums2 []int) float64 {
 	tmparr := make([]int, len(nums1)+len(nums2))
 
 	mergesort(tmparr, nums1, nums2)
-
-	fmt.Println(tmparr)
 
 	mid := (len(nums1) + len(nums2)) / 2
 	if (len(nums1)+len(nums2))%2 != 0 {
