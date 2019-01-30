@@ -66,7 +66,7 @@ func (h *maxheap) sink(i int) {
 }
 
 /** initialize your data structure here. */
-func Constructor() MedianFinder {
+func Constructor295() MedianFinder {
 	return MedianFinder{
 		minh:   make([]int, 0),
 		minlen: 0,
