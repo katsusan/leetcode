@@ -5,6 +5,7 @@
 
 2. 区块链开发指南
     - https://blog.csdn.net/Blockchain_lemon/article/details/81880183
+    - https://cryptozombies.io/zh/lesson/2/chapter/7    Solidity
 
 3. 区块链分类
     - 公共链(Publick Blockchain):利用密码学和经济激励建立共识从而形成去中心化的信用机制。共识机制一般为工作量证明(PoW)或权益证明(PoS).如比特币/以太坊

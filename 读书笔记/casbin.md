@@ -1,4 +1,6 @@
-参考：  https://www.cnblogs.com/wang_yb/archive/2018/11/20/9987397.html
+参考:   https://www.cnblogs.com/wang_yb/archive/2018/11/20/9987397.html
+        https://studygolang.com/topics/6999
+
 
 basic:
     一个模型conf至少有四个部分:
