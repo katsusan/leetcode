@@ -125,9 +125,67 @@ example：
         ONBUILD后面跟RUN、COPY等，它在当前镜像构建时并不会运行，只有别的镜像以它为基础构建时才会执行。
 
 4. Docker操作
-    docker run 
+    + docker run
+        -t  tty: Allocate a pseudo-TTY
+        -i  interactive: Keep STDIN open even if not attached
+        -d  detach: Run container in background and print container ID
+    + docker container
+        start/stop/restart
+        ls (-a)
+        rm
+        prune   Remove all stopped containers
+        logs
+    + docker attach attach到容器内，exit会退出容器
+    + docker exec
+        -t detach
+        -i interactive
+    + docker export
+        -o 将container导入到-o指定的文件(tar格式)
+    + docker import
+        file/url/- repo[:tag] 导入文件并生成指定容器
 
+
+5. 私有仓库
+    官方库：
+    docker run -d -p 5000:5000 -v /opt/data/registry:/var/lib/registry --restart=always --name registry registry
+
+    docker tag ubuntu:latest localhost:5000/ubuntu:latest
+    docker push localhost:5000/ubuntu:latest    //will push this image to localhost:5000
+    docker pull locahost:5000/ubuntu:latest     //will pull ubuntu:latest from localhost:5000
+
+    以上官方库有一些缺点比如一些image删除后不会自动回收空间等等，下面是推荐的第三方库管理镜像。
+    docker run -d --name nexus3 --restart=always -p 8081:8081 --mount src=nexus-data,target=/nexus-data sonatype/nexus3
+
+
+6. 数据卷
+    数据卷可以在容器之间共享和重用
+    对数据卷的修改会立马生效
+    对数据卷的更新不会影响镜像
+    数据卷会一直存在即使容器被删除
+
+    docker volume
+        create x    创建数据卷x
+        ls          显示所有数据卷
+        rm
+        prune
+        inpect
+
+    执行docker run的时候用--mount标记来将数据卷挂载到容器里，可以同时挂载多个。
+        docker run --mount src=vol1, taget=/data1
+    
+    同时mount也可以将宿主机目录/文件挂载进容器中，如
+        docker run --mount type=bind,src=/usr/docker/webdata,target=/webdata,readonly
     
 
+7. docker网络
+    -P参数代表docker会将49000-49900中随机的端口映射到容器内应用的开放端口。
+    -p则是指定端口，支持的格式有：ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort。
+    例：
+        -p 80:80            //将宿主机任意接口的80绑定到容器的80端口
+        -p 127.0.0.1:80:80  //将宿主机本地网卡接口上的80绑定到容器的80端口
+        -p 127.0.0.1::80    //绑定宿主机上127.0.0.1接口的任意端口到容器的80端口
+    
+    docker port <containerID> 用来查看容器的端口配置
 
-
+    docker network create -d bridge <netname>
+    docker run --network <netname>

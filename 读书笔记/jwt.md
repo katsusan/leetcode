@@ -25,4 +25,24 @@ from https://jwt.io/introduction/
         HMACSHA256(
             base64UrlEncode(header) + "." +
             base64UrlEncode(payload),
-            secret)
+            your-secret-key)
+
+
+example：
+    header = {
+        "alg": "HS256",
+        "typ": "JWT"
+    }
+    payload = {
+        "sub": "1234567890",
+        "name": "John Doe",
+        "iat": 1516239022    
+    }
+    secret-key = "alnot",
+
+    then HMACSHA256(base64UrlEncode(header) + "." + base64UrlEncode(payload), "alnot") =>
+    
+        "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.EGNFLqC70PFCXz3LNu8uzyKmAao4llm-FYCpPPIK3Ek"
+
+
+
