@@ -20,7 +20,8 @@ head -> -------------> 4 ------> 6 ----------------------> nil
 head -> 1 ------> 3 -> 4 ------> 6 -----------> 9 -------> nil
 head -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> nil
 
-#C语言版本实现：https://www.epaperpress.com/sortsearch/txt/skl.txt
+#C语言版本实现:
+	https://www.epaperpress.com/sortsearch/txt/skl.txt
 */
 
 type SkipList struct {
@@ -28,6 +29,7 @@ type SkipList struct {
 	Probability float32
 	MaxLevel    int
 	LevelUsed   int
+	rd          *rand.Rand
 }
 
 type SkipListNode struct {
@@ -61,18 +63,17 @@ func NewNode(k int, v interface{}, crlevel int, maxlevel int) *SkipListNode {
 }
 
 func NewSkipList() *SkipList {
-	rand.Seed(int64(time.Now().Nanosecond()))
-
 	return &SkipList{
 		Head:        NewNode(0, "headnode", 1, DefaultMaxLevel),
 		Probability: DefaultProbability,
 		MaxLevel:    DefaultMaxLevel,
 		LevelUsed:   1,
+		rd:          rand.New(rand.NewSource(int64(time.Now().Nanosecond()))),
 	}
 }
 
 func (sk *SkipList) randomf() float32 {
-	return rand.Float32()
+	return sk.rd.Float32()
 }
 
 func (sk *SkipList) RandomLevel() int {
