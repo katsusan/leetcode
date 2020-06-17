@@ -40,8 +40,8 @@ type SkipListNode struct {
 }
 
 const (
-	DefaultMaxLevel    = 16
-	DefaultProbability = 1.0 / 2 //Probability can be used to make a trade-off between storage cost and search cost,usually 0.5 or 0.25
+	DefaultMaxLevel    = 32
+	DefaultProbability = 1.0 / 4 //Probability can be used to make a trade-off between storage cost and search cost,usually 0.5 or 0.25
 )
 
 var (
@@ -68,7 +68,7 @@ func NewSkipList() *SkipList {
 		Probability: DefaultProbability,
 		MaxLevel:    DefaultMaxLevel,
 		LevelUsed:   1,
-		rd:          rand.New(rand.NewSource(int64(time.Now().Nanosecond()))),
+		rd:          rand.New(rand.NewSource((time.Now().UnixNano()))),
 	}
 }
 
