@@ -2,8 +2,23 @@
   mysql的事务隔离级别和锁：https://tech.meituan.com/2014/08/20/innodb-lock.html
 
 
+1. Basic
+  - 数据库level
+  ```
+  CREATE DATABASE `db` character set utf8;
+  DROP DATABASE `db`;
+  
+  ```
 
-1. explain相关
+  GROUP BY
+  ------------
+  - The GROUP BY Clause is used to group rows with same values .
+  - The GROUP BY Clause is used together with the SQL SELECT statement.
+  - The SELECT statement used in the GROUP BY clause can only be used contain column names, aggregate functions, constants and expressions.
+  - The HAVING clause is used to restrict the results returned by the GROUP BY clause.
+
+
+2. explain相关
     from： https://segmentfault.com/a/1190000008131735
 
    各个字段含义：
@@ -74,5 +89,11 @@
 
 
 
-2. 索引设计
-  - 主键索引缺失： 
+3. 索引设计
+  添加索引命令：
+    - ALTER TABLE `ground` ADD PRIMARY KEY (`uid`);   //添加主键索引
+    - ALTER TABLE `ground` ADD UNIQUE (`uid`);  //添加唯一索引
+    - ALTER TABLE `ground` ADD INDEX index_create_time (`create_time`); //添加单一索引
+    - ALTER TABLE `ground` ADD FULLTEXT (`body`); //添加全文索引
+    - ALTER TABLE `ground` ADD INDEX index_id_name (`id`, `name`);  //添加联合索引
+

@@ -378,8 +378,14 @@ redis设计与实现：
         位数组用sds来表示，robj.ptr -> sds{len:..., alloc:..., flags:..., buf[0],buf[1]...buf[N]} //其中最后的buf[N]为'\0'.
 
         汉明重量：位数组中非0位的数量。
-        redis采用查表和variable-precisionSWAR结合的方法来计算BITCOUNT。
-            - 先每28字节用SWAR算法计算，最后剩余的不足28字节用查表来得出。
+        redis采用查表和variable-precision SWAR结合的方法来计算BITCOUNT。
+            - 先每28字节用SWAR算法计算，最后剩余的不足28字节用查表来得出(bitops.c)。
+            - SWAR: SIMD Within A Register, 核心代码示例如下：
+                int swar(uint32_t n) {
+                    n = n - ((n >> 1) & 0x55555555);
+                    n = (n & 0x33333333) + (n >> 2) & 0x33333333;
+                    return (((n + (n >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+                }
     
 
     慢查询日志：

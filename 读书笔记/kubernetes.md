@@ -22,4 +22,64 @@
         -kubelet：负责直接根节点上的容器服务打交道。在v1.0中已经支持Docker/Rkt两种容器实现。
             此外也接收来自kube-apiserver的HTTP请求，汇报所在节点的Pod运行状态。
         
-3.
+3. Pod和容器设计模式
+    亲密关系 -> 运行于同一台宿主机
+    超亲密关系 -> 同一个pod下(频繁发生rpc调用/通过localhost通信等)
+
+    共享网络：
+        k8s.gcr.io/pause -> 汇编写的一直处于暂停状态的100-200KB大小的镜像。
+        container用-net=k8s.gcr.io/pause启动，则可以直接用localhost通信，并且该pod的IP地址与infra一样，生命周期与infra容器相同。
+
+    共享存储：
+        pod内指定volume来解决。
+        例：
+            ```yaml
+            apiVersion: v1
+            kind: Pod
+            metadata: 
+                name: two-containers
+            spec:
+                restartPolicy: Never
+                volumes:
+                - name: shared-data
+                  host-path:
+                    path: /data
+                containers:
+                - name: nginx-container
+                  image: nginx
+                  volumeMounts:
+                  - name: shared-data
+                    mountPath: /usr/share/nginx/html
+                - name: debina-container
+                  image: debian
+                  volumeMounts:
+                  - name: shared-data
+                    mountPath: /pod/staticfiles
+            ```
+    
+    容器设计模式：
+        InitContainer：
+            比spec.Containers定义的用户容器先启动，并且严格按照定义的顺序依次执行。
+            ```yaml
+            spec:
+                initContainers:
+                - image: sample:v2
+                  name: warpackage
+                  command: ["cp", "/sample.war", "/app"]
+                  volumeMounts:
+                  - mountPath: /app
+                    name: app-volume
+                containers:
+                ...
+                volumes:
+                - name: app-volume
+                  emptyDir: {}
+        
+        SideCar:
+            pod里定义专门的容器来执行主业务容器需要的辅助工作。比如日志、debug、应用监控等。
+
+            代理容器模式：
+                将pod的入口统一在proxy处
+            适配器容器模式：
+                将业务容器暴露出的接口转换为另一种模式
+            
