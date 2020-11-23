@@ -163,7 +163,7 @@ func mapfast(t *types.Type) int {
         - tophash [8]uint8  
         - key x 8   // key的size x 8，比如int64的key就是8x8
         - elem x 8  // elem的size x 8， 比如string的elem就是16x8
-        - overflow uintptr  //溢出时不一定会马上扩增，此时overflow代表溢出时的额外bmap
+        - overflow uintptr  //溢出时不一定会马上扩容，此时overflow代表溢出时的额外bmap
     比如说，map[int]string的bucketsize为8+8x8+16x8+8=208字节。
     另外tophash[i]代表第i个key的前8位，所以每次先遍历比较tophash与计算所得hash的前8位，相符再取对应的key和elem操作。
 
@@ -178,7 +178,13 @@ b = hmap.bucket + maptype.bucketsize * bucketindex  // 获取桶的地址
 按照以下逻辑遍历桶：
     - 比较hash的高8位(特别地，小于0x5时有)与桶的tophash[i]，不相等则说明key不匹配
     - 调用maptype.key.equal(key, k)判断给定key和桶里的k是否相等，相等则匹配成功根据i计算出elem的地址并返回
-    - 否则根据访问形式返回空值或空值,false
+    - 否则根据访问形式返回空值或 空值,false
+
+关于hash算法，以x64为例：
+	runtim.memhash64 //通用的64位key的hash算法，由编译时的genhash返回
+		- 若runtime.useAeshash为true则使用硬件的aesenc指令计算
+		- 否则调用runtime.memhash64Fallback (基于xxhash和cityhash的自定义算法)
+
 
 # 6. map扩容
 

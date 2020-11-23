@@ -564,8 +564,8 @@ type p struct {
 
 7. schedule时机
 
-	- mstart1	->	schedule
-
+	- startm -> newm -> newm1 -> newosproc -> clone -> mstart -> mstart1	->	schedule
+	  // mstart is the entry-point for new Ms
 	- park_m	->	schedule
 
 	- gosched_m -> goschedImpl	-> schedule
@@ -593,9 +593,8 @@ type p struct {
 		- 切换到当前m的g0栈，执行传入的fn函数，具体：
 			+ MOV g0.sp SP	//栈帧寄存器指向g0栈的栈帧位置, SP = m->g0.sched.sp
 			+ PUSH g		//将caller的g入栈
-			+ call fn		//执行传入的fn	//fn理论上必须是永不返回
+			+ call fn		//执行传入的fn	//fn理论上必须是永不返回,比如schedule函数这种
 			+ POP 			//理论上不会执行这步
 			+ ...
-		- 
 
 
