@@ -1,8 +1,8 @@
 redis:
-    任务队列：  RPUSH+BLPOP / LPUSH+BRPOP
+    任务队列：  RPUSH+BLPOP / LPUSH+BRPOP   
     优先队列：  BLPOP queue1 queue2 ...
 
-redis设计与实现：
+redis设计与实现：   
     哈希表：
         扩展时空间变为大于等于ht[0].used * 2的最小2的幂数，
         收缩时空间变为大于等于ht[0].used的最小2的幂数。
@@ -15,7 +15,7 @@ redis设计与实现：
         渐进式哈希：ht[0]到ht[1]的迁移并非一次性完成，而是每次对字典有增删查改时将ht[0]的rehashidx索引上的键值对复制到ht[1]，
                 并将rehashidx加1。最终复制完rehashidx变成-1.
                 期间查找先查ht[0]再查ht[1]，新增键值对一律加入ht[1].
-    
+
         结构(dict.h)：
             typedef struct dict {   //采用hashtable时的robj对象里的ptr所指
                 dictType *type;
@@ -55,7 +55,7 @@ redis设计与实现：
                 //保存元素的底层数组
                 int8_t contents[];
             } intset;
-    
+
     压缩列表(ziplist)： //哈希键和列表键的可用选择之一
         结构：
             zlbytes: uint32_t, 整个压缩列表占用的字节数
@@ -239,7 +239,7 @@ redis设计与实现：
             - 主服务器的复制积压缓冲区 (replication backlog) -> 默认1MB的FIFO缓冲区，所有写命令在这里都有一份副本
             - 服务器的运行ID (run ID)
         ⭐复制积压缓冲区的大小通常由second * write_size_per_second决定。
-           second为从服务器断线重连所需时间，write_size_per_second为主服务器每秒产生的写命令长度(协议长)。
+            second为从服务器断线重连所需时间，write_size_per_second为主服务器每秒产生的写命令长度(协议长)。
 
         完整重同步： 从服务器未复制过或者执行过SLAVEOF NO ONE时，则会发送PSYNC ? -1给主服务器
         部分重同步： 如果从服务器复制过，则发送PSYNC <runid> <offset>给主服务器，runid为上次复制主服务器的运行id，
@@ -251,7 +251,7 @@ redis设计与实现：
 
         复制的流程：
             建立TCP连接 -> 发送PING -> 发送AUTH xx(如果从服务器设置masterauth选项的话) -> 发送端口信息(REPLCONF listening-port <port>)
-                 -> 同步(PSYNC) -> 命令传播
+                    -> 同步(PSYNC) -> 命令传播
             ⭐认证时从服务器设置了masterauth且主服务器设置了requirepass或者两者都没有设置才会认证成功
             ⭐命令传播阶段从服务器会每秒发送一次REPLCONF ACK <replication_offset>给主服务器通告复制偏移量
 
@@ -295,7 +295,7 @@ redis设计与实现：
         节点收到请求时会先查看是否属于自己处理，否则发出MOVED错误指引请求正确的节点。
 
         redis-trib负责集群的重新分片工作，重新分片的关键是将某个槽的所有键值对迁移到另一个槽。
-    
+
     发布与订阅：
         struct redisServer {
             ...
@@ -361,16 +361,16 @@ redis设计与实现：
 
         关于redis事务的ACID:
             - 原子性, 事务中的命令要么全执行,要么一个都不执行.redis满足该特性但不支持事务回滚.
-              如: 命令队列入队时发现命令参数数量不对(GET后面没接key)则全部放弃执行.
-                  执行过程中发现命令和参数类型不符合(对字符串RPUSH这种),则会跳过继续执行.
+                如: 命令队列入队时发现命令参数数量不对(GET后面没接key)则全部放弃执行.
+                    执行过程中发现命令和参数类型不符合(对字符串RPUSH这种),则会跳过继续执行.
             - 一致性, 执行前数据库是一致性的,则执行后依旧满足一致性,
-              redis下有谨慎的错误检测,如下面三种情况:
+                redis下有谨慎的错误检测,如下面三种情况:
                 - 入队错误, 比如输入了不存在的命令. 此时所有命令都不会被执行
                 - 执行错误, 这个无法在入队检测时被发现,执行时会跳过它
                 - 服务器宕机, 无论在非持久/RDB/AOF哪种模式下都不会影响一致性
             - 隔离性, 多个事务并发执行时不会互相影响. redis是单进程单线程操作,各事务处于串行执行,因此满足隔离性.
             - 耐久性, 事务执行完毕时事务的执行结果会被保存到永久介质里。
-              redis下只有appendfsync为always时，每次执行完指令会调用sync命令同步到磁盘里，此时才算满足耐久性。
+                redis下只有appendfsync为always时，每次执行完指令会调用sync命令同步到磁盘里，此时才算满足耐久性。
 
     二进位制数组：
         SETBIT/GETBIT/BITCOUNT/BITOP
@@ -386,7 +386,7 @@ redis设计与实现：
                     n = (n & 0x33333333) + (n >> 2) & 0x33333333;
                     return (((n + (n >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
                 }
-    
+
 
     慢查询日志：
         slowlog-log-slower-than X表示执行时间大于X微秒的命令将会被记录。 //默认10000即10毫秒

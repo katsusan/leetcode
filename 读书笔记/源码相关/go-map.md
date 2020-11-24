@@ -176,7 +176,7 @@ bucketindex = hash & (2<<B-1)
 b = hmap.bucket + maptype.bucketsize * bucketindex  // 获取桶的地址
 ↓
 按照以下逻辑遍历桶：
-    - 比较hash的高8位(特别地，小于0x5时有)与桶的tophash[i]，不相等则说明key不匹配
+    - 比较hash的高8位(特别地，小于0x5时有特殊含义)与桶的tophash[i]，不相等则说明key不匹配
     - 调用maptype.key.equal(key, k)判断给定key和桶里的k是否相等，相等则匹配成功根据i计算出elem的地址并返回
     - 否则根据访问形式返回空值或 空值,false
 

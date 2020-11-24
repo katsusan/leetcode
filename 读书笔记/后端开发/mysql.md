@@ -154,7 +154,48 @@
 
 			例：use test = 0x02(use) 0x74 0x65 0x73 0x74(test)
 	- 服务端包格式
-		+ 
-
-
+		+ 握手初始化包
+      * 1字节：协议版本号，由include/mysql_version.h中的PROTOCOL_VERSION定义
+      * n字节：服务器信息，n=strlen(server_version)+1, MYSQL_SERVER_VERSION中保存着版本信息，比如"5.0.77-community-nt MySQL Community Edition(GPL)"
+      * 4字节：线程号，MySQL为此连接分配的线程号
+      * 8字节：密码验证1
+      * 1字节：0x00填充
+      * 2字节：以位图形式表达出服务端可接受的连接选项，在include/mysql_com.h中以CLIENT_开头列出
+              比如#define CLIENT_LONG_PASSWORD	1 /* new more secure passwords */
+                  #define CLIENT_FOUND_ROWS	2	/* Found instead of affected rows */
+                  #define CLIENT_LONG_FLAG	4	/* Get all column flags */
+              注：头文件里CLIENT_开头的宏最大到了1<<31,因此这里怀疑应该是4字节
+      * 1字节：服务器字符集
+      * 2字节：服务器状态标志，在mysql_com.h中以SERVER_STATUS_开头，
+              比如#define SERVER_STATUS_IN_TRANS     1
+                  #define SERVER_STATUS_AUTOCOMMIT   2	/* Server in auto_commit mode */
+                  #define SERVER_MORE_RESULTS_EXISTS 8    /* Multi query - next query exists */
+      * 13字节：0x00填充
+      * 13字节：密码验证2
+    + 结果包
+      开头1字节定义了包类型
+        * 0x00：OK包
+        * 0xff：ERROR包
+        * 0xfe：EOF包
+        * 1-250：结果集包，Select * from table1
+        * 1-250：属性包， Select 1+1
+        * 1-250：行数据包
+      OK包：
+        MySQL成功执行一个命令后，将回复一个OK包，通常是对以下客户端命令的回复：
+          * COM_PING
+          * COM_QUERY //这里的query指的是更广泛意义的查询，包括insert、update、delete等
+          * COM_REFRESH
+          * COM_REGISTER_SLAVE
+        包括：1字节(field_count)+1~9字节(影响行数)+1~9字节(插入ID)+2字节(服务器状态)+2字节(警告数量)+N字节(消息)
+      ERROR包：
+        MySQL服务器处理命令出错，或者认证信息有问题则会返回ERROR包，包括：
+          1字节(0xff)+2字节(错误号)+1字节(SQL状态标识符'#')+5字节(SQL状态)+N字节(消息)
+      结果集包：
+        宏观上由一系列包组成：
+          * 结果集包头部->1~9字节(field_count)+1~9字节(附属字段)
+          * 属性包1，属性包2，...，属性包N
+          * EOF包
+          * 行数据包1，行数据包2，...，行数据包N
+          * EOF包
+        查询结果如果是n列，m行，则最后结果集共有m+n+3个包。
 
