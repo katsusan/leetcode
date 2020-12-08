@@ -1,3 +1,5 @@
+refer： https://dave.cheney.net/2014/03/19/channel-axioms
+
 # 1. channel底层结构
 
 ```Go
@@ -80,7 +82,7 @@ type chantype struct {
 func makechan(t *chantype, size int) *hchan
 
 func chanrecv1(c *hchan, elem unsafe.Pointer)       // <-c
-func chanrecv2(c *hchan, elem unsafe.Pointer) (received bool)   // _, ok := <-c
+func chanrecv2(c *hchan, elem unsafe.Pointer) (received bool)   // _, ok := <-c || for range c
 
 // chanrecv receives on channel c and writes the received data to ep.
 // ep may be nil, in which case received data is ignored.
@@ -89,6 +91,7 @@ func chanrecv2(c *hchan, elem unsafe.Pointer) (received bool)   // _, ok := <-c
 // Otherwise, fills in *ep with an element and returns (true, true).
 // A non-nil ep must point to the heap or the caller's stack.
 func chanrecv(c *hchan, ep unsafe.Pointer, block bool) (selected, received bool)    //上述两者的底层实现
+
 
 func chansend1(c *hchan, elem unsafe.Pointer)   // c <- x
 
@@ -106,10 +109,63 @@ func chansend1(c *hchan, elem unsafe.Pointer)   // c <- x
  */
 func chansend(c *hchan, ep unsafe.Pointer, block bool, callerpc uintptr) bool
 
+/*
+select {				if selectnbsend(c, x) {
+case c <- x:				foo
+	foo			==>		} else {
+default:					bar
+	bar					}
+}
+*/
+func selectnbsend(c *hchan, elem unsafe.Pointer) (selected bool)
+	 chansend(c, elem, false, getcallerpc())
 
+/*
+select {				if selectnbrecv(v, c) {
+case v := <- c:				foo
+	foo			==>		} else {
+default:					bar
+	bar					}
+}
+*/
+func selectnbrecv(elem unsafe.Pointer, c *hchan) (selected bool)
+
+/*
+select {				if c != nil && selectnbrecv2(&v, &ok, c) {
+case v, ok := <- c:			foo
+	foo			==>		} else {
+default:					bar
+	bar					}
+}
+*/
+func selectnbrecv2(elem unsafe.Pointer, received *bool, c *hchan) (selected bool)
+
+/*
+select {
+case <- c1:
+	foo
+case <- c2:
+	bar
+}
+
+*/
+func selectgo(cas0 *scase, order0 *uint16, ncases int) (int, bool)
 ```
 
 # 3. chan行为一览
+
+--------------------------------------------------------------
+操作		nil channel		正常channel			closed channel
+--------------------------------------------------------------
+<-ch		阻塞			成功或阻塞			读到零值
+--------------------------------------------------------------
+ch<-		阻塞			成功或阻塞			panic
+--------------------------------------------------------------
+close(ch)	panic			成功				panic
+--------------------------------------------------------------
+
+
+
 
 
 
