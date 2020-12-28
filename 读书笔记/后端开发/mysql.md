@@ -1,8 +1,8 @@
 参考链接：
   mysql的事务隔离级别和锁：https://tech.meituan.com/2014/08/20/innodb-lock.html
+  阿里数据库blog：http://mysql.taobao.org/monthly
 
-
-# 0. Prep
+# 0. Pre
   install from source
   - groupadd mysql
   - useradd -r -g mysql -s /bin/false mysql
@@ -390,12 +390,73 @@ InnoDB将所有记录存储在数据库页中，一般非压缩的页大小为16
 
 # 10. MySQL日志功能及实现分析
 # 10.1 错误日志
+默认情况下错误日志会记录到数据目录，名为<hostname>.err。
+在命令行或配置文件里以log-error选项指定，可以用show variables like 'log_error'来查看。
+// TODO(次要)：梳理错误日志初始化以及写逻辑。
+// 初始化：mysqld_main() -> init_error_log(),简单初始化 -> init_server_components(),打开日志文件、初始化handler等
+// 写：sql_print_error/sql_print_warning/sql_print_information -> error_log_print -> log_error -> vprint_msg_to_log -> print_buffer_to_file
 
 # 10.2 普通日志
+general query log记录了连接、断开连接、以及每次执行的sql语句。
+默认情况下是未启用状态，可以用以下方式启用：
+  - at startup：general_log=1或无->启用 | 0代表禁用；general_log_file=filename，指定日志存储位置
+  - at runtime：set global general_log = 'ON'/1 |'OFF'/0, set global general_log_file = '/path/general.log'
+// TODO(次要)：梳理普通日志初始化及写逻辑
+// 初始化：mysqld_main() -> query_logger.init()，初始化全局变量query_logger(负责general/slow log) -> init_server_components()
+//           -> query_logger.set_handlers(log_output_options)/reopen_log_file(QUERY_LOG_GENERAL)
+// 写：query_logger.general_log_print -> general_log_write -> (Log_to_csv_event_handler/Log_to_file_event_handler)::log_general
 
 # 10.3 慢查询日志
+超过long_query_time(默认10秒)的语句会被记录在慢查询日志，格式如下：
+```sql
+# Time: 2020-12-13T18:06:49.198960+08:00
+# User@Host: eleusr[eleusr] @  [192.168.1.33]  Id:    19
+# Query_time: 10.000782  Lock_time: 0.000000 Rows_sent: 1  Rows_examined: 0
+SET timestamp=1607854009;
+select sleep(10);
+```
+默认慢查询日志不会记录，可以用以下方式启用：
+  - at startup：slow_query_log=0(禁用)|1或无(启用); slow_query_log_file='/path',指定慢查询日志存储位置
+  - at runtime: set global slow_query_log = ON/1 | 'OFF'/0；set global slow_query_log_file = '/path'
+// TODO(次要)：梳理初始化及写逻辑
+// 初始化：mysqld_main()  -> init_server_components() -> query_logger.set_handlers(log_output_options)/reopen_log_file(QUERY_LOG_SLOW)
+// 写：log_slow_statement -> log_slow_do -> query_logger.slow_log_write -> slow_log_handler_list.log_slow
+        -> (Log_to_csv_event_handler/Log_to_file_event_handler)::log_slow
 
 # 10.4 二进制日志
+二进制日志记录所有更新的SQL语句，包含可能更新数据的语句，当然SELECT和show语句是不会记录在内的。
+它主要有两个功能，数据恢复和数据复制。默认情况下MySQL不会记录binlog，可以设置log-bin=[basename]
+来启用。生成的binlog文件为basename.00000X格式，每次mysql启动都会令X加1。可以用mysqlbinlog命令读取。
+启用后会产生basename.index和basename.00000X文件，前者存放既存binlog的路径，后者为实际的binlog文件。
+注：设置log-bin参数时server-id也要一并设置。
+
+// 摘取了一条插入语句`insert into account values (12, 'Trump', 8000)`的binlog内容，
+```
+#201213 19:18:17 server id 1  end_log_pos 293 CRC32 0x352cae79  Query   thread_id=2     exec_time=0     error_code=0
+SET TIMESTAMP=1607858297/*!*/;
+SET @@session.pseudo_thread_id=2/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1436549152/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C utf8 *//*!*/;
+SET @@session.character_set_client=33,@@session.collation_connection=33,@@session.collation_server=45/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+BEGIN
+/*!*/;
+# at 293
+#201213 19:18:17 server id 1  end_log_pos 349 CRC32 0xff8fd1f2  Table_map: `ground`.`account` mapped to number 112
+# at 349
+#201213 19:18:17 server id 1  end_log_pos 400 CRC32 0xf2567dfd  Write_rows: table id 112 flags: STMT_END_F
+BINLOG '
+efjVXxMBAAAAOAAAAF0BAAAAAHAAAAAAAAEABmdyb3VuZAAHYWNjb3VudAADAw8DAvwDBvLRj/8=
+efjVXx4BAAAAMwAAAJABAAAAAHAAAAAAAAEAAgAD//gMAAAABQBUcnVtcEAfAAD9fVby
+'/*!*/;
+```
+// TODO: binlog的初始化及写逻辑
+// 初始化：mysqld_main()  -> init_server_components() -> mysql_bin_log.open_index_file(opt_binlog_index_name, ln, TRUE)，打开index文件
+//            -> tc_log= &mysql_bin_log; tc_log->open(opt_bin_log ? opt_bin_logname : opt_tc_log_file)
+// 写：
 
 # 11. 子系统
 # 11.1 复制功能子系统(Replication)

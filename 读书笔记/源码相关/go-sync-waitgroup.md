@@ -1,5 +1,7 @@
+refer:
+    https://swtch.com/semaphore.pdf
 
-1. 结构定义
+# 1. 结构定义
 ```Go
 type WaitGroup struct {
 	noCopy noCopy   //struct{}
@@ -14,7 +16,7 @@ type WaitGroup struct {
 }
 ```
 
-2. 核心逻辑
+# 2. 核心逻辑
     ```Go
     func (wg *WaitGroup) state() (statep *uint64, semap *uint32) {
         //保证对齐的8字节存储于statep中，其中高4字节为counter，低4字节为waiter count

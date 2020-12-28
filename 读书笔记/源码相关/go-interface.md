@@ -69,15 +69,17 @@ func convT32(val uint32) (x unsafe.Pointer)     // val为4字节大小且4字节
 func convT64(val uint64) (x unsafe.Pointer)     // val为64字节大小且8字节对齐，比如uint64
 func convTstring(val string) (x unsafe.Pointer) // val为string型或基于string型的自定义类型(type name string这种)
 func convTslice(val []byte) (x unsafe.Pointer)  // val为切片或基于切片的自定义类型
-func convT2Enoptr(t *_type, elem unsafe.Pointer) (e eface)  // 非上述情况的话则
+// 非上述情况的话则视源变量是否含有指针以及转换目标为空接口还是非空接口调用以下函数
+func convT2Enoptr(t *_type, elem unsafe.Pointer) (e eface)
 func convT2E(t *_type, elem unsafe.Pointer) (e eface) 
 func convT2I(tab *itab, elem unsafe.Pointer) (i iface) 
 func convT2Inoptr(tab *itab, elem unsafe.Pointer) (i iface)
 
-func assertI2I(inter *interfacetype, i iface) (r iface)
-func assertI2I2(inter *interfacetype, i iface) (r iface, b bool)
-func assertE2I(inter *interfacetype, e eface) (r iface)
-func assertE2I2(inter *interfacetype, e eface) (r iface, b bool) 
+// 一般接口类型不能直接赋值给T或E，必须调用下面的断言函数转换之后方可使用
+func assertI2I(inter *interfacetype, i iface) (r iface)             // dst := src.(worker), src为非空接口
+func assertI2I2(inter *interfacetype, i iface) (r iface, b bool)    // dst, ok := src.work(worker)，src为非空接口
+func assertE2I(inter *interfacetype, e eface) (r iface)             // dst := e.(worker)，e为interface{}变量
+func assertE2I2(inter *interfacetype, e eface) (r iface, b bool)    // dst, ok := e.(worker),e为interf{}变量 
 
 ```
 

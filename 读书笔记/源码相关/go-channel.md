@@ -1,5 +1,9 @@
 refer： https://dave.cheney.net/2014/03/19/channel-axioms
 
+source:
+	runtime/chan.go
+	runtime/select.go
+
 # 1. channel底层结构
 
 ```Go
@@ -148,6 +152,8 @@ case <- c2:
 	bar
 }
 
+cas0为select语句里所有case的数组，order0为遍历case所用的原始顺序数组，ncases为case的数量，
+返回对应recv/send/default的case数组的位置，以若为recv操作时是否接受到值(正常receive到值为true)
 */
 func selectgo(cas0 *scase, order0 *uint16, ncases int) (int, bool)
 ```

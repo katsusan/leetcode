@@ -566,20 +566,31 @@ type p struct {
 
 	- startm -> newm -> newm1 -> newosproc -> clone -> mstart -> mstart1	->	schedule
 	  // mstart is the entry-point for new Ms
-	- park_m	->	schedule
 
-	- gosched_m -> goschedImpl	-> schedule
+	- gopark	->	park_m	->	schedule
+	  // gopark puts the current goroutine into a waiting state and calls unlockf. 
+	  // most synchronization events will enter this.(channel, sleep, mutex etc.)
 
-	- preemptPark	-> schedule
-	  //preemptPark parks gp and puts it in _Gpreempted.
+	- Gosched		->		gosched_m	-> 		|
+												|-> goschedImpl	-> schedule
+	  asyncPreempt2	->	|						|
+	  					|	->	gopreempt_m ->	|
+	  newstack		->	|
+
+	- asyncPreempt2	->	|
+						|->	preemptPark	-> schedule
+	  newstack		->	|
+
+	  // preemptPark parks gp and puts it in _Gpreempted.
+	  // asyncPreempt2 is used for asynchronous preemption in Go 1.14 later.
+	  // newstack is called by runtime.morestack
 
 	- goyield	-> mcall(goyield_m)	-> schedule
-
+	  // put into local runqueue
+	
 	- goexit1	->	mcall(goexit0)	->	schedule
 
 	- exitsyscall0	->	schedule
-
-
 
 
 
@@ -596,5 +607,19 @@ type p struct {
 			+ call fn		//执行传入的fn	//fn理论上必须是永不返回,比如schedule函数这种
 			+ POP 			//理论上不会执行这步
 			+ ...
+
+9. runtime.newproc
+本节着重关注协程创建时参数的传递策略。
+```go
+func newproc(siz int32, fn *funcval)
+```
+
+压栈时如下：
+	rsp -> siz	// 4字节，MOVL指令
+	rsp+0x8	->	fn	// 8字节
+	rsp+0x10,0x18,.. -> 闭包变量
+
+
+
 
 
