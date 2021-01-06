@@ -78,6 +78,14 @@ type chantype struct {
 	elem *_type
 	dir  uintptr
 }
+
+type scase struct {
+    c           *hchan         // chan
+    elem        unsafe.Pointer // data element
+    kind        uint16
+    pc          uintptr // race pc (for race detector / msan)
+    releasetime int64
+}
 ```
 
 # 2. 所有chan操作函数签名
@@ -159,7 +167,7 @@ func selectgo(cas0 *scase, order0 *uint16, ncases int) (int, bool)
 ```
 
 # 3. chan行为一览
-
+```
 --------------------------------------------------------------
 操作		nil channel		正常channel			closed channel
 --------------------------------------------------------------
@@ -169,9 +177,33 @@ ch<-		阻塞			成功或阻塞			panic
 --------------------------------------------------------------
 close(ch)	panic			成功				panic
 --------------------------------------------------------------
-
-
-
-
+```
+# 4. channel操作函数summary
+# 4.1 selectgo()
+传入参数：
+	- cas0 *scase: 所有recv/send/default操作构成的scase数组
+	- order0 *uint16: 长度为ncases，值均为0的uint16数组
+	- ncases int: scase数量
+返回值：
+	- int：可操作channel在cas0中的索引
+	- bool：如果是对应recv操作则返回是否有接收到值
+流程(这里只着重关键步骤)：
+	- 把所有操作中channel为nil的scase置为scase{}
+	- 生成随机数列，写入pollorder
+	- 按照每个scase的channel地址排序，写到lockorder(TODO：弄清heap sort的流程)
+	- 按照lockorder锁定所有scase涉及的非空channel，`sellock(scases, lockorder)`
+	- 核心流程：
+		- 按照pollorder遍历scase涉及的channel，尝试检查是否对应的等待队列正好有协程等待读写。
+				若有default case则循环结束后解锁所有相关channel并停止后续步骤直接进行返回操作。
+		- 按照lockorder更新当前协程的等待链表gp.waiting(*sudog类型)，sudog.waitlink指向下一个sudog，
+				并且将链表成员sg放入相应的channel的recvq和sendq。
+		- 调用gopark(selparkcommit, ...)执行selparkcommit后使当前协程陷入等待，
+				selparkcommit里解锁了所有gp.waiting链表里的channel。
+				而该协程被唤醒后会调用`sellock(scases, lockorder)`再度锁定scases里的channel。
+		-	当前goroutine被唤醒时会把对方的sudog对象通过gp.param传过来，即`sg = (*sudog)(gp.param)`。
+				然后清空gp.waiting链表里的所有sudog，包括按照lockorder遍历gp.waiting得到sg的位置，也就是获得了selectgo返回结果中的索引casi。
+				以及从其它channel的sendq和recvq里移出之前入队的sudog。
+	- 如果是channel接收操作的话同时把返回值里的布尔值设为true。
+	- 返回casi, recvOK。
 
 
