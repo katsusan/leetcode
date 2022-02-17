@@ -3,7 +3,7 @@ refer:
 epoll implementation:
     https://programming.vip/docs/linux-kernel-notes-epoll-implementation-principle.html
 
-1. IO过程
+# 1. IO过程
     linux下每次IO访问，数据会先拷贝到内核缓冲区，然后才会从内核的缓冲区拷贝到用户地址空间
     比如read操作有以下两个阶段：
     - 等待数据准备
@@ -17,16 +17,16 @@ epoll implementation:
     - 异步I/O
 
 
-2. 阻塞I/O
+# 2. 阻塞I/O
     默认情况linux下所有socket都是阻塞的。当调用recv/recvfrom/recvmsg时，在数据被拷贝到内核缓冲区，内核会将其拷贝
     到用户空间并解除用户进程阻塞。
 
-3. 非阻塞I/O
+# 3. 非阻塞I/O
     linux下可以用fcntl将socket设置为非阻塞I/O。当调用recv/recvfrom/recvmsg时，当内核缓冲区中数据没有准备好，则会
     立刻返回-1，并将error设为EAGAIN或EWOULDBLOCK。
     此种模式下用户进程需不断询问内核数据是否准备就绪。
 
-4. I/O多路复用
+# 4. I/O多路复用
     即常说的select/poll/epoll。不断轮询所有监视的socket，有数据就绪就通知用户进程。
     
     select会一直阻塞直到以下3种情况之一发生：
@@ -86,6 +86,10 @@ epoll implementation:
     它对描述符的操作有两种模式，水平触发(level trigger)和边缘触发(edge trigger)。
     默认采用LT模式。
 
+    - The performance of epoll scales much better than select() and poll() when monitoring large numbers of file descriptors.
+    - The epoll API permits either level-triggered or edge-triggered notification. By contrast, select() and poll() provide only level-triggered notification, 
+        and signal-driven I/O provides only edge-triggered notification.
+
     LT：支持block/nonblock，对通知已就绪的描述符不作任何操作的话还会继续提示
     ET: 支持nonblock，对通知过的描述符状态即使不作操作也不再通知
 
@@ -99,14 +103,22 @@ epoll implementation:
     如果是LT模式，那么在第5步调用epoll_wait(2)之后，仍然能受到通知。
     如果是ET模式，那么第5步epoll_wait可能会挂起，只有其它事件发生时才会再次返回，此时缓冲区内剩余数据可能会被放弃等待。
     因此recv的时候如果返回的大小等于buffer大小需要再次尝试recv一次。
-    
 
-    步骤分为三步：
-    - create a context in the kernel using epoll_create
-    - add and remove file descriptors to/from the context using epoll_ctl
-    - wait for events in the context using epoll_wait
 
-    int epoll_create(int size)；//创建一个epoll的句柄，size用来告诉内核这个监听的数目一共有多大
-    int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)；//注册要监听的事件类型
-    int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout);
+# 4.1 epoll API  
+
+步骤分为三步：
+- create a context in the kernel using epoll_create     // This file descriptor is not used for I/O, it is a handle for kernel data structures.
+    + recording a list of file descriptors that this process has declared an interest in monitoring — the interest list
+    + maintaining a list of file descriptors that are ready for I/O — the ready list.
+
+- add and remove file descriptors to/from the context using epoll_ctl
+
+- wait for events in the context using epoll_wait
+
+int epoll_create(int size)；//创建一个epoll的句柄，size用来告诉内核这个监听的数目一共有多大，返回epfd
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)；//注册要监听的事件类型
+int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout);
+
+
 

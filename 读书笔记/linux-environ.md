@@ -1,5 +1,5 @@
 
-1. zsh配置
+# 1. zsh配置
     - sudo apt-get install zsh
     - chsh -s $(which zsh)
     - sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -31,12 +31,11 @@
         alias l="ls -lA"
         alias l.="ls -d .*"
 
-2. gdb dashboard(tui mode): 
+# 2. gdb dashboard(tui mode): 
     wget -P ~ https://git.io/.gdbinit
 
 
-
-3. 编译nginx:
+# 3. 编译nginx:
 
 ./configure --prefix=/etc/nginx \
             --sbin-path=/usr/sbin/nginx \
@@ -101,6 +100,30 @@
     https://www.cnblogs.com/runnyu/p/4922558.html
     
 
+# 4. systemd 
+
+```/etc/systemd/system/mysqld.service
+# MySQL systemd service file
+
+[Unit]
+Description=mysql 5.7 Community Server
+Documentation=https://dev.mysql.com
+After=network.target
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=forking    # if program doesn't fork(such as go binary), use Type=simple
+User=mysql
+Group=mysql
+PIDFile=/var/run/mysqld/mysqld.pid
+PermissionsStartOnly=true
+ExecStart=/usr/local/bin/mysqld --daemonize
+TimeoutSec=600
+#RuntimeDirectory=mysqld
+#RuntimeDirectoryMode=755
+#LimitNOFILE=5000
+```
 
 
 

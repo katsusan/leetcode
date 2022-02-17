@@ -27,22 +27,40 @@ from https://jwt.io/introduction/
             base64UrlEncode(payload),
             your-secret-key)
 
+2. details
 
-example：
-    header = {
-        "alg": "HS256",
-        "typ": "JWT"
-    }
-    payload = {
-        "sub": "1234567890",
-        "name": "John Doe",
-        "iat": 1516239022    
-    }
-    secret-key = "alnot",
+implementation in Golang:
+ 
+```Golang
+func main() {
+	header := `{"alg":"HS256","typ":"JWT"}`
+	payload := `{"sub":"1234567890","name":"John Doe","iat":1516239022}`
+	secret := `abc`
+	var b bytes.Buffer
+	headerBase64 := base64.RawURLEncoding.EncodeToString([]byte(header))
+	fmt.Printf("header base64: %s\n", headerBase64)     // eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
 
-    then HMACSHA256(base64UrlEncode(header) + "." + base64UrlEncode(payload), "alnot") =>
-    
-        "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.EGNFLqC70PFCXz3LNu8uzyKmAao4llm-FYCpPPIK3Ek"
+	payloadBase64 := base64.RawURLEncoding.EncodeToString([]byte(payload))
+	fmt.Printf("payload base64: %s\n", payloadBase64)   // eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ
 
+	b.WriteString(headerBase64)
+	b.WriteString(".")
+	b.WriteString(payloadBase64)
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(headerBase64 + "." + payloadBase64))
+	sum := h.Sum(nil)
+	sig := base64.RawURLEncoding.EncodeToString(sum)
+	fmt.Printf("sum: %x\n", sum)
+	fmt.Printf("sig base64: %s\n", sig)     // nZ86hUWPdG43W6HVSGFy6DJnDVOZhx8a73LhQ3gIxY8
+}
+```
 
+finally token   = base64urlEncoding(header) + '.' + base64urlEncoding(payload) + '.' + base64urlEncoding(signature)
+                = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.nZ86hUWPdG43W6HVSGFy6DJnDVOZhx8a73LhQ3gIxY8
+
+3. Use
+
+see https://jwt.io/introduction and https://en.wikipedia.org/wiki/JSON_Web_Token.
+
+typically in HTTP header `Authorization: Bearer eyJhbGci...<snip>...yu5CSpyHI`.
 

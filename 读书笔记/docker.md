@@ -6,7 +6,7 @@ example：
     docker exec -it redisx /bin/bash
 
 
-1. 命名空间namespace
+# 1. 命名空间namespace
     linux2.6之后的内核加入了一种资源隔离机制，可以将内核中支持的系统资源比如进程/用户账户/文件系统/网络
     分属为特定的命名空间，每个命名空间下的资源对于其它的命名空间资源是透明不可见的，因此在不同命名空间下
     可能出现相同pid的进程。
@@ -35,7 +35,7 @@ example：
     - net：基于网络栈的隔离。允许使用者将特定网卡与特定容器中的进程运行上下文关联起来，使得同一个网卡在不同容器中显示不同的名称。
 
 
-2. 控制组cgroup(Control Group)
+# 2. 控制组cgroup(Control Group)
     linux内核提供的一种可以限制/记录/隔离进程组所使用的物理资源(CPU/内存/磁盘IO/网络等)。
     cgroup有三个核心概念。
         - Hierarchy 层级
@@ -75,7 +75,7 @@ example：
     进程的cgroup属性会继承，因此父进程的限制对子进程依然有效，类似于树状
 
 
-3. Dockerfile指令
+# 3. Dockerfile指令
     每个dockerfile指令都会创造一层镜像。
     - FROM
         表明以哪个镜像为基础进行构建，特别地，从空白镜像构建用FROM scratch(Go应用常用)
@@ -124,7 +124,7 @@ example：
     - ONBUILD
         ONBUILD后面跟RUN、COPY等，它在当前镜像构建时并不会运行，只有别的镜像以它为基础构建时才会执行。
 
-4. Docker操作
+# 4. Docker操作
     + docker run
         -t  tty: Allocate a pseudo-TTY
         -i  interactive: Keep STDIN open even if not attached
@@ -145,7 +145,7 @@ example：
         file/url/- repo[:tag] 导入文件并生成指定容器
 
 
-5. 私有仓库
+# 5. 私有仓库
     官方库：
     docker run -d -p 5000:5000 -v /opt/data/registry:/var/lib/registry --restart=always --name registry registry
 
@@ -157,7 +157,7 @@ example：
     docker run -d --name nexus3 --restart=always -p 8081:8081 --mount src=nexus-data,target=/nexus-data sonatype/nexus3
 
 
-6. 数据卷
+# 6. 数据卷
     数据卷可以在容器之间共享和重用
     对数据卷的修改会立马生效
     对数据卷的更新不会影响镜像
@@ -177,7 +177,7 @@ example：
         docker run --mount type=bind,src=/usr/docker/webdata,target=/webdata,readonly
     
 
-7. docker网络
+# 7. docker网络
     -P参数代表docker会将49000-49900中随机的端口映射到容器内应用的开放端口。
     -p则是指定端口，支持的格式有：ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort。
     例：
@@ -189,3 +189,106 @@ example：
 
     docker network create -d bridge <netname>
     docker run --network <netname>
+
+
+# 8. Multi-stage多阶段构建
+
+通常应用的编译环境与运行环境的要求并不要求一致，以Go来讲，编译镜像`FROM golang:1.x.y`一般要上百M，
+而生产中运行其可执行文件并不需要golang环境本身，可以借助Dockerfile中的multi-stage来应对此问题。
+
+以一个简单的echo服务为例，它把http请求的parameters原样返回，代码如下：
+
+```Go
+// echo.go
+func main() {
+        debug := os.Getenv("DEBUG")
+        http.HandleFunc("/echo", func(w http.ResponseWriter, r *http.Request) {
+                if err := r.ParseForm(); err != nil {
+                        w.Write([]byte("incorrect params"))
+                        return
+                }
+                for k, v := range r.Form {
+                        // name = john,bob
+                        w.Write([]byte(k + " = " + strings.Join(v, ",")))
+                }
+        })
+        http.ListenAndServe(":8000", nil)
+}
+```
+
+# 8.1 通常的容器构建方式
+
+```Dockerfile
+# First use this environment(Dockerfile.build) to compile our echo.go
+FROM golang:1.16.3
+WORKDIR /root/echosrv
+COPY echo.go .
+RUN CGO_ENABLED=0 go build -o echo echo.go
+```
+
+```Dockerfile
+# This is our produnction environment
+FROM alpine:latest
+WORKDIR /root/
+COPY echo .
+CMD ["./echo"]
+```
+
+```Bash
+#!/bin/sh
+echo Building echo service
+docker build --no-cache -t echo:build . -f Dockerfile.build     # build our binary in image(echo:build)
+docker create --name echosrv echo:build                 # create new container(echosrv) for copying binary
+docker cp echosrv:/root/echosrv/echo ./                 # copy our binary to current work directory
+docker rm echosrv                                       # delete the temporary container 
+
+echo Building echo:latest
+docker build -t echo:latest .                           # since our binary is ready, we can build our echo server now.
+```
+
+构建并执行后测试发现运行正常。但采用这种方法需要维护两个Dockerfile以及一个build脚本，
+其中应当有简化的空间，也就是下面要说的multi-stage构建。
+
+```
+➜  multi-stage docker run --detach=true --name=echo1 -p 5000:8000 echo:latest
+0ec4d759a2b5318978d6fcfa9ca9e4d973c961de95c81d90b4e8a641dd993f36
+➜  multi-stage curl "http://192.168.1.22:5000/echo?name=Rob&name=Ken&name=Robert"
+name = Rob,Ken,Robert#
+```
+
+# 8.2 multi-stage构建
+
+```Dockerfile
+FROM golang:1.16.3
+WORKDIR /root/echo_multi
+COPY echo.go .
+RUN CGO_ENABLED=0 go build -o echo echo.go
+
+FROM alpine:latest
+WORKDIR /root
+COPY --from=0 /root/echo_multi/ .
+CMD ["./echo"]
+```
+
+用--from=0引用第一个stage构建的镜像，但这样指定不是很清晰，于是命名式多阶段构建出现了。
+
+
+# 8.3 named multi-stage构建
+
+```Dockerfile
+FROM golang:1.16.3 as builder
+WORKDIR /root/echo_multi
+COPY echo.go .
+RUN CGO_ENABLED=0 go build -o echo echo.go
+
+FROM alpine:latest
+WORKDIR /root
+COPY --from=builder /root/echo_multi/ .
+CMD ["./echo"]
+```
+
+用FROM as来指定别名，然后用--from=来引用，除此之外，还有以下用法：
+
+- docker build --target builder ...     // 在stage: builder处停止
+- COPY --from=nginx:latest /etc/nginx/nginx.conf /nginx.conf        // 使用外部nginx:latest镜像作为stage
+

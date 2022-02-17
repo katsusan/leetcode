@@ -1,4 +1,5 @@
 refer： https://dave.cheney.net/2014/03/19/channel-axioms
+				https://docs.google.com/document/d/1yIAYmbvL3JxOKOjuCyon7JhW4cSv1wy5hC0ApeGMV9s/pub		// design document
 
 source:
 	runtime/chan.go
@@ -88,6 +89,29 @@ type scase struct {
 }
 ```
 
+# 1.1 等待队列waitq
+
+```Go
+type waitq struct {
+	first *sudog
+	last  *sudog
+}
+```
+
+waitq是一个双向链表，用于表示阻塞等待写入或读出当前channel的channel列表。
+它有enqueue和dequeue两个操作，可以看出是一个FIFO队列。
+- enqueue向链表尾部添加sudog
+- dequeue从链表头部取出sudog
+
+# 1.2 hchan中的sendq和recvq
+
+每个channel的发送队列sendq和接收队列recvq需满足以下条件：
+- sendq与recvq除了下面的特殊情况外其中必有一个为空。
+	(特殊情况：单个goroutine里用select同时发送和接收同一个无缓冲channel，此时sendq和recvq的长度取决于select表达式的个数)
+- 对于有缓冲channel
+	+ qcount > 0	→		recvq为空
+	+ qcount < datasiz	→		sendq为空
+
 # 2. 所有chan操作函数签名
 
 ```Go
@@ -161,7 +185,7 @@ case <- c2:
 }
 
 cas0为select语句里所有case的数组，order0为遍历case所用的原始顺序数组，ncases为case的数量，
-返回对应recv/send/default的case数组的位置，以若为recv操作时是否接受到值(正常receive到值为true)
+返回对应recv/send/default的case数组的位置，以若为recv操作时是否接收到值(正常receive到值为true)
 */
 func selectgo(cas0 *scase, order0 *uint16, ncases int) (int, bool)
 ```
@@ -180,6 +204,8 @@ close(ch)	panic			成功				panic
 ```
 # 4. channel操作函数summary
 # 4.1 selectgo()
+签名：
+	selectgo(cas0 *scase, order0 *uint16, ncases int) (int, bool)
 传入参数：
 	- cas0 *scase: 所有recv/send/default操作构成的scase数组
 	- order0 *uint16: 长度为ncases，值均为0的uint16数组
@@ -203,7 +229,88 @@ close(ch)	panic			成功				panic
 		-	当前goroutine被唤醒时会把对方的sudog对象通过gp.param传过来，即`sg = (*sudog)(gp.param)`。
 				然后清空gp.waiting链表里的所有sudog，包括按照lockorder遍历gp.waiting得到sg的位置，也就是获得了selectgo返回结果中的索引casi。
 				以及从其它channel的sendq和recvq里移出之前入队的sudog。
-	- 如果是channel接收操作的话同时把返回值里的布尔值设为true。
+	- 如果是channel接收操作的话同时把返回值里的布尔值设为true,并且解锁scases，`selunlock(scases, lockorder)`。
 	- 返回casi, recvOK。
+
+# 4.2 chanrecv
+签名:
+	`func chanrecv(c *hchan, ep unsafe.Pointer, block bool) (selected, received bool)`
+	(chanrecv1、chanrecv2、selectnbrecv、selectnbrecv底层均是调用chanrecv函数，其中前两者采取阻塞方式，后两者采取非阻塞方式。)
+传入参数：
+	- c *hchan：channel的运行时表示
+	- ep unsafe.Pointer: 接收channel数据的地址
+	- block bool：接收channel时是否阻塞
+返回值：
+	- selected bool：代表select语句中该case是否
+	- received bool: 是否正确接收到值，比如接收已关闭channel时返回false
+流程：
+	// Fast path: check for failed non-blocking operation without acquiring the lock.
+	- c为nil
+		- block为true => 永远阻塞，即`gopark(nil, nil, waitReasonChanReceiveNilChan, traceEvGoStop, 2)`,比如`<- ch(nil channel)`。
+		- block为false => 直接返回，不写任何内容到ep，即return (false, false)，比如带default的2-case select里有`case <- ch(nil channel)`。
+	- !block && empty(c)：非阻塞且从c中读不到任何数据
+		- c.closed为0，代表channel未关闭，则直接返回不写任何内容到ep，比如`<- ch(empty channel)`。
+		- 到这里意味着c.closed为1，代表channel已关闭，此时由于empty(c)和c.closed判断之间可能有新数据写入，因此再检测empty(c)：
+			- 若empty(c)还为true，则把ep处的数据清零，并返回(true, false)。
+	
+	- lock(c.lock)
+	- c.closed != 0 && c.qcount == 0
+		- 清零ep处的内容，返回(true, false)
+	- sg := c.sendq.dequeue()
+		- 若sg不为nil，代表有协程在等待写入，执行`recv(c, sg, ep, func() { unlock(&c.lock) }, 3)`接收数据并返回(true, true)。
+	- c.qcount > 0	// 带缓冲的channel中有数据
+		- qp := chanbuf(c, c.recvx)		// 获得接收buffer的recvx处的指针qp
+			typedmemmove(c.elemtype, ep, qp)	// 复制qp处的数据到ep
+			typedmemclr(c.elemtype, qp)	// 清空已接收buffer处的内容
+			c.recvx++		// 接收位置++
+			c.qcount--	// channel中的缓冲数据数目--
+			return true, true
+	- !block // 代表c.qcount为0且为非阻塞接收，直接返回(false, false)
+	// no sender available: block on this channel
+	- mysg := acquireSudog()
+		mysg.elem/waitlink/g/isSelect/c = ep/nil/gp/false/c		// 设置mysg以待唤醒
+		gp.waiting/param = mysg/nil
+		c.recvq.enqueue(mysg)		// 加到c的recvq队列中
+		atomic.Store8(&gp.parkingOnChan, 1)
+		gopark(chanparkcommit, unsafe.Pointer(&c.lock), waitReasonChanReceive, traceEvGoBlockRecv, 2)		// 阻塞当前goroutine进入waiting状态等待唤醒
+	// 运行到此处代表有另外协程向该channel写入数据然后唤醒了它
+	- releaseSudog(mysg)	// 释放mysg
+		closed := gp.param == nil		// go.param若为nil代表由close(ch)唤醒的当前goroutine，若为sg代表由另外的协程send所唤醒
+		return true, !closed
+
+# 4.2.1 recv
+签名：
+	recv(c *hchan, sg *sudog, ep unsafe.Pointer, unlockf func(), skip int)
+传入参数：
+	- c *hcan：接收channel对象
+	- sg *sudog：sender关联的sudog
+	- ep unsafe.Pointer: 接收地址
+	- unlockf func(): 数据接收后要执行的unlock函数
+	- skip int: trace用
+返回值：
+	无
+流程：
+	- c.dataqsiz == 0 && ep != nil // 无缓冲channel且接收地址不为nil
+		recvDirect(c.elemtype, sg, ep)	// 直接从sg.elem向ep复制
+	- c.dataqsize > 0 // 代表缓冲区里有数据
+		qp := chanbuf(c, c.recvx)	// 根据c.recvx确定接收数据的源地址，即c.buf+elemsize*c.recvx
+		ep != nil =>	typedmemmove(c.elemtype, ep, qp)	// 若ep不为空则复制qp处的数据到ep
+		typedmemmove(c.elemtype, qp, sg.elem)	// 将sender的数据sg.elem复制到c.buf上的qp处
+		c.recvx++; if (c.recvxx==c.dataqsiz) {c.recvx=0}	// 计算环形队列的recvx
+		c.sendx = c.recvx		// TODO:?
+	- sg.elem = nil		// 如果sg.elem是指向堆的话可以方便该内存块GC
+		gp := sg.g
+		unlockf()		// 执行unlockf即c.unlock()，解除对c的锁
+		gp.param = unsafe.Pointer(sg)		// 唤醒goroutine时传递的参数，gp.param里传递sg代表不是由关闭channel所唤醒，参考https://go-review.googlesource.com/c/go/+/245019
+		goready(gp, skip+1)		// 唤醒sg.g
+
+
+
+
+
+
+
+
+
 
 

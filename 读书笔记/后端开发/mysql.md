@@ -45,6 +45,7 @@
 
 # 2. explain相关
     from： https://segmentfault.com/a/1190000008131735
+    better ref: https://dev.mysql.com/doc/refman/5.7/en/explain-output.html
 
    各个字段含义：
     - id: SELECT 查询的标识符. 每个 SELECT 都会自动分配一个唯一的标识符.

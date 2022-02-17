@@ -1,5 +1,7 @@
 refer:
     https://research.swtch.com/interfaces
+    https://www.airs.com/blog/archives/277
+    https://blog.golang.org/laws-of-reflection
     https://zhuanlan.zhihu.com/p/27055513
 
 # 1. go运行时将常用的interface用两种结构表示：
@@ -17,6 +19,20 @@ type eface struct {
     data  unsafe.Pointer    //数据指针
 }
 
+// layout:
+//              64bit   32bit
+//  size        8       4
+//  ptrdata     8       4
+//  hash        4       4
+//  tflag       1       1   -> uint8 
+//  align       1       1
+//  fieldAlign  1       1
+//  kind        1       1
+//  equal func  8       4
+//  gcdata      8       4
+//  str         4       4   -> int32
+//  ptrToThis   4       4   -> int32
+//  <total>     48      32
 type _type struct {
     size       uintptr
     ptrdata    uintptr // size of memory prefix holding all pointers
@@ -83,4 +99,8 @@ func assertE2I2(inter *interfacetype, e eface) (r iface, b bool)    // dst, ok :
 
 ```
 
+# 5. reflect
 
+reflect.TypeOf(v)   →   Type(eface(v).rtype)
+
+reflect.ValueOf(v)  →   Value{typ: v.rtype, ptr: v.word, flag: rtype.Kind()}

@@ -19,7 +19,7 @@ are all contiguous in memory and recorded as a single symbol, “pclntab”.
 
 也就是在AMD64架构下，gopclintab的形式大概如下：
 [4] 0xfffffffb
-[2] 0x00
+[2] 0x0000
 [1] 0x01
 [1] 0x08
 [8] N (size of function symbol table)

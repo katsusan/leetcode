@@ -39,7 +39,7 @@ var (
 ```
 
 
-1. go的G-P-M模型定义
+# 1. go的G-P-M模型定义
 
 //D:\Dev\Go\src\runtime\runtime2.go
 ```Go
@@ -296,12 +296,12 @@ type p struct {
 ```
 
 
-2. 启动流程
+# 2. 启动流程
 	程序启动时会先根据GOMAXPROCS来启动一定数量的P,其中假设P0执行main
 	M0 -> P0 -> G0 -> main().
 	idle P: P1->P2->P3->...->Pn	//其余空闲的P放于链表
 
-3. runtime调度中的公平性fairness
+# 3. runtime调度中的公平性fairness
     - Local run queue：运行大于10ms的goroutine被标记为preemptible(可抢占),抢占点有函数调用，内存分配等。
         //Go1.13以前如果没有进行上述抢占点的操作可以独占CPU资源
     - Global run queue: 每61次schedule会检测一次grq来确保
@@ -323,23 +323,23 @@ type p struct {
 
 
 
-4. runtime启动流程	
+# 4. runtime启动流程	
    //以GO1.13.10 linux-amd64为例
 
-	1. _rt0_amd64_linux	//rt0_linux_amd64.s
+## 4.1. _rt0_amd64_linux	//rt0_linux_amd64.s
 	 	编译出的ELF文件的entrypoint即此函数的地址，内部直接调用了_rt0_amd64。
 		TEXT _rt0_amd64_linux(SB),NOSPLIT,$-8
 			JMP	_rt0_amd64(SB)
 
-	2. _rt0_amd64	//asm_amd64.s
+## 4.2. _rt0_amd64	//asm_amd64.s
 		大多数AMD64架构的启动程序，主要处理程序入参。此时RDI存argc，RSI存指向参数数组的指针
 		TEXT _rt0_amd64(SB),NOSPLIT,$-8
 			MOVQ	0(SP), DI	// argc
 			LEAQ	8(SP), SI	// argv
 			JMP	runtime·rt0_go(SB)
 	
-	3. runtime·rt0_go	//ams_amd64.s
-		进行了栈参数复制、runtim.g0的栈参数设定、获取CPU信息、设定tls、
+## 4.3. runtime·rt0_go	//ams_amd64.s
+		进行了栈参数复制、runtim.g0的栈参数设定、获取CPU信息、设定tls等
 		调用的函数：
 			- runtime·settls
 			- runtime·check
@@ -486,8 +486,23 @@ type p struct {
 		MOVQ	$runtime·debugCallV1(SB), AX
 		RET
 
+## 4.4. runtime.main
 
-5. Go 1.14的非协作式抢占
+- runtime.maxstacksize = 250MB(32bit)/1GB(64bit)
+- mainStarted = true	// allow newproc() to wakep()
+- lockOSThread()
+- doInit(&runtime_inittask)
+	+ runtime.init(): go forcegchelper()
+- gcenable()
+	+ go bgsweep()
+	+ go bgscavenge()
+- doInit(&main_inittask)
+- unlockOSThread()
+- fn := main_main; fn()
+- exit(0)
+
+
+# 5. Go 1.14的非协作式抢占
 	GODEBUG=asyncpreemptoff=1可以关闭
 	运行超过10ms的goroutine会被标记为Preemptable，并且在恰当的时机(isAsyncSafePoint返回true)时由sysmon进程发出抢占信号SIGURG。
 	调用链：
@@ -538,7 +553,7 @@ type p struct {
 		(3)调用globrunqput将g放入全局队列sched.runq
 
 
-6. m初始化
+# 6. m初始化
 	全局的runtime.allm指向了所有m串成的单向链表，m中的alllink指向了下一个m，
 	每次新生成的m插入链表头，即 m5 -> m4 -> m3 -> m2 -> m1 -> runtime.m0
 
@@ -562,8 +577,9 @@ type p struct {
 	↓
 	sigaction
 
-7. schedule时机
+# 7. schedule时机
 
+```
 	- startm -> newm -> newm1 -> newosproc -> clone -> mstart -> mstart1	->	schedule
 	  // mstart is the entry-point for new Ms
 
@@ -572,8 +588,8 @@ type p struct {
 	  // most synchronization events will enter this.(channel, sleep, mutex etc.)
 
 	- Gosched		->		gosched_m	-> 		|
-												|-> goschedImpl	-> schedule
-	  asyncPreempt2	->	|						|
+																		|-> goschedImpl	-> schedule
+	  asyncPreempt2	->	|							|
 	  					|	->	gopreempt_m ->	|
 	  newstack		->	|
 
@@ -588,13 +604,13 @@ type p struct {
 	- goyield	-> mcall(goyield_m)	-> schedule
 	  // put into local runqueue
 	
-	- goexit1	->	mcall(goexit0)	->	schedule
+	- goexit1	->	mcall(goexit0)	->	schedule   
 
 	- exitsyscall0	->	schedule
+```
 
 
-
-8. mcall
+# 8. mcall
 	runtime.mcall分为以下几个步骤
 		- 保存caller的goroutine上下文到其sched成员中
 			+ MOV caller_PC g.sched.pc	//注意这里的pc是caller中mcall的下一个指令地址
@@ -608,7 +624,7 @@ type p struct {
 			+ POP 			//理论上不会执行这步
 			+ ...
 
-9. runtime.newproc
+# 9. runtime.newproc
 本节着重关注协程创建时参数的传递策略。
 ```go
 func newproc(siz int32, fn *funcval)

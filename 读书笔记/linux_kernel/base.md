@@ -1,6 +1,7 @@
 # 0. some useful links:
     https://0xax.gitbooks.io/linux-insides
     https://linux-kernel-labs.github.io/
+		
 
 # 1. interrupts and exceptions
 	- interrupt: An interrupt is an asynchronous event that is typically triggered by an I/O device

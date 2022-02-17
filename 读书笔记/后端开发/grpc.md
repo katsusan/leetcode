@@ -17,7 +17,7 @@ example：
     c := pb.NewGreeterClient(conn)  //*.pb.go为protoc的编译结果
     r, err := c.SayHello(ctx, &pb.HelloRequest{Name: name})
 
-# 2. 前置知识protobuffer
+# 2. 序列化知识protobuffer
 
 
 

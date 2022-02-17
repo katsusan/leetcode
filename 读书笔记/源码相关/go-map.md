@@ -159,51 +159,51 @@ func mapfast(t *types.Type) int {
 # 5. map中具体的设计
 
 注：编译时maptype中hasher函数由genhash(t.Key())确定，bucketsize由dowidth(bucket)确定，
-    其中每个bucket可以看作一个结构体，由以下成员构成，padding和结构体对齐规则类似。(目前bucketCnt为常量8)
-        - tophash [8]uint8  
-        - key x 8   // key的size x 8，比如int64的key就是8x8
-        - elem x 8  // elem的size x 8， 比如string的elem就是16x8
-        - overflow uintptr  //溢出时不一定会马上扩容，此时overflow代表溢出时的额外bmap
-    比如说，map[int]string的bucketsize为8+8x8+16x8+8=208字节。
+    其中每个bucket可以看作一个结构体，由以下成员构成，padding和结构体对齐规则类似。(目前bucketCnt为常量8)   
+        - tophash [8]uint8   
+        - key x 8   // key的size x 8，比如int64的key就是8x8   
+        - elem x 8  // elem的size x 8， 比如string的elem就是16x8   
+        - overflow uintptr  //溢出时不一定会马上扩容，此时overflow代表溢出时的额外bmap   
+    比如说，map[int]string的bucketsize为8+8x8+16x8+8=208字节。   
     另外tophash[i]代表第i个key的前8位，所以每次先遍历比较tophash与计算所得hash的前8位，相符再取对应的key和elem操作。
 
-key
-↓
-hash = maptype.hasher(key, maptype.hash0)
-↓
-bucketindex = hash & (2<<B-1)
-↓
-b = hmap.bucket + maptype.bucketsize * bucketindex  // 获取桶的地址
-↓
-按照以下逻辑遍历桶：
-    - 比较hash的高8位(特别地，小于0x5时有特殊含义)与桶的tophash[i]，不相等则说明key不匹配
-    - 调用maptype.key.equal(key, k)判断给定key和桶里的k是否相等，相等则匹配成功根据i计算出elem的地址并返回
-    - 否则根据访问形式返回空值或 空值,false
+key   
+↓   
+hash = maptype.hasher(key, maptype.hash0)   
+↓   
+bucketindex = hash & (2<<B-1)   
+↓   
+b = hmap.bucket + maptype.bucketsize * bucketindex  // 获取桶的地址   
+↓   
+按照以下逻辑遍历桶：  
+	- 比较hash的高8位(特别地，小于0x5时有特殊含义)与桶的tophash[i]，不相等则说明key不匹配   
+	- 调用maptype.key.equal(key, k)判断给定key和桶里的k是否相等，相等则匹配成功根据i计算出elem的地址并返回   
+	- 否则根据访问形式返回空值或 空值,false   
 
-关于hash算法，以x64为例：
-	runtim.memhash64 //通用的64位key的hash算法，由编译时的genhash返回
-		- 若runtime.useAeshash为true则使用硬件的aesenc指令计算
-		- 否则调用runtime.memhash64Fallback (基于xxhash和cityhash的自定义算法)
+关于hash算法，以x64为例：  
+	runtim.memhash64 //通用的64位key的hash算法，由编译时的genhash返回   
+		- 若runtime.useAeshash为true则使用硬件的aesenc/aesenclast指令计算  // intel amd64    
+		- 否则调用runtime.memhash64Fallback (基于xxhash和cityhash的自定义哈希算法)   
 
 
 # 6. map扩容
 
-当向map里写入新的key/value时，满足以下两个条件之一发生扩容
-    - overLoadFactor(h.count+1, h.B)为true  // 即 h.count+1 > 8 && h.count > 6.5 * 2^B
-    - tooManyOverflowBuckets(h.noverflow, h.B)为true
-        + 若h.B<15，则返回 h.noverflow >= 2^B
-        + 若h.B>=15, 则返回 h.noverflow >= 2^15
+当向map里写入新的key/value时，满足以下两个条件之一发生扩容   
+    - overLoadFactor(h.count+1, h.B)为true  // 即 h.count+1 > 8 && h.count > 6.5 * 2^B   
+    - tooManyOverflowBuckets(h.noverflow, h.B)为true   
+        + 若h.B<15，则返回 h.noverflow >= 2^B   
+        + 若h.B>=15, 则返回 h.noverflow >= 2^15   
       简单地说桶个数低于32768时溢出桶数不能超过桶个数，桶个数大于32768时溢出桶数不能大于32768，否则就扩容
 
-扩容有两种形式: SameSize Grow和Double Grow，即原尺寸调整和双倍扩容，
-若触发了负载因子上限导致扩容会进行双倍扩容，否则进行原尺寸调整，将稀疏的元素聚集在一起。
+扩容有两种形式: SameSize Grow和Double Grow，即原尺寸调整和双倍扩容，   
+若触发了负载因子上限导致扩容会进行双倍扩容，否则进行原尺寸调整，将稀疏的元素聚集在一起。   
 (evacuate函数比较复杂有空再梳理)
 
 # 7. map遍历
 
-在栈上申请一个it *hiter变量,调用mapiterinit(t *maptype, h *hmap, it *hiter)初始化遍历结构体
-(遍历map的随机因子就在此产生)，里面最后调用了func mapiternext(it *hiter)，当遍历了一圈后将
-it.key和it.elem都设为nil，这样外面的range语法糖就可以通过检测it.key是否为nil来判断遍历是否结束。
+在栈上申请一个it *hiter变量,调用mapiterinit(t *maptype, h *hmap, it *hiter)初始化遍历结构体(遍历map的随机因子就在此产生)，   
+里面最后调用了func mapiternext(it *hiter)，当遍历了一圈后将it.key和it.elem都设为nil，这样外面的range语法糖就可以通过检测it.key     
+是否为nil来判断遍历是否结束。
 
 
 
