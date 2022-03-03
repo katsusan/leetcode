@@ -1,6 +1,8 @@
 package sort
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestQuickSort1(t *testing.T) {
 	data := []int{8, 6, 9, 1, 22}
