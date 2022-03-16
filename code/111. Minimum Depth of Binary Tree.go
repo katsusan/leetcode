@@ -1,5 +1,7 @@
 package code
 
+import "container/list"
+
 /**
  * Definition for a binary tree node.
  * type TreeNode struct {
@@ -28,4 +30,37 @@ func minDepth(root *TreeNode) int {
 
 	return mr + 1
 
+}
+
+func minDepthBFS(root *TreeNode) int {
+	if root == nil {
+		return 0
+	}
+
+	var depth = 1
+	q := list.New()
+	q.PushBack(root)
+
+	for q.Len() != 0 {
+		size := q.Len()
+		for i := 0; i < size; i++ {
+			cur := q.Front().Value.(*TreeNode)
+			q.Remove(q.Front())
+			if cur.Left == nil && cur.Right == nil {
+				return depth
+			}
+
+			if cur.Left != nil {
+				q.PushBack(cur.Left)
+			}
+
+			if cur.Right != nil {
+				q.PushBack(cur.Right)
+			}
+		}
+
+		depth++
+	}
+
+	return depth
 }
