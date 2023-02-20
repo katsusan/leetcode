@@ -32,3 +32,28 @@ func partition(head *ListNode, x int) *ListNode {
 	p1.Next = gt.Next
 	return lt.Next
 }
+
+func partition2(head *ListNode, x int) *ListNode {
+	lt := &ListNode{Val: -1} // nodes whose value < x
+	gt := &ListNode{Val: -1} // nodes whose value >= x
+	p1, p2 := lt, gt
+
+	cur := head
+
+	for cur != nil {
+		if cur.Val < x {
+			p1.Next = cur
+			p1 = p1.Next
+		} else {
+			p2.Next = cur
+			p2 = p2.Next
+		}
+
+		cur = cur.Next
+	}
+
+	// merge two linked lists
+	p1.Next = gt.Next
+	p2.Next = nil
+	return lt.Next
+}
