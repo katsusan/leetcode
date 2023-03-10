@@ -7,6 +7,7 @@ Input: root = [1,3,2,5,3,null,9]
 Output: [1,3,9]
 */
 
+// use Breadth-First-Search(BFS)
 func largestValues(root *TreeNode) []int {
 	if root == nil {
 		return nil
