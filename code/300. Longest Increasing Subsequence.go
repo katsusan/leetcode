@@ -25,3 +25,31 @@ func ArrMax(arr ...int) int {
 	}
 	return maxVal
 }
+
+// patience sort, O(nlogn) complexity.
+func lengthOFLIS2(nums []int) int {
+	piles := make([]int, len(nums))
+	pileCount := 0
+
+	for i := 0; i < len(nums); i++ {
+		pile := nums[i]
+		left, right := 0, pileCount
+		for left < right {
+			mid := (left + right) / 2
+			if pile <= piles[mid] {
+				right = mid
+			} else if pile > piles[mid] {
+				left = mid + 1
+			}
+		}
+
+		// currnem > all existing piles, get new pile
+		if left == pileCount {
+			pileCount++
+		}
+
+		piles[left] = pile
+	}
+
+	return pileCount
+}
