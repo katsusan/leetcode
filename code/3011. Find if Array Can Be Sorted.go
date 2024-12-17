@@ -1,6 +1,6 @@
 package code
 
-func canSortArray(nums []int) bool {
+func canSortArray3011(nums []int) bool {
 	// separate nums into array clusters, every cluster
 	// share the same number of set bits, clusters should satisfy:
 	// cluster[i].Max <= cluster[i+1].Min
