@@ -125,6 +125,16 @@ TimeoutSec=600
 #LimitNOFILE=5000
 ```
 
+# 5. configure ssh public key authentication
+
+1. local -> ssh-keygen for id_rsa.pub & id_rsa
+2. copy contents of id_rsa.pub to $user/.ssh/authorized_keys on remote machine.
+    // for github, copy id_rsa or id_ed25519 to github setting
+3. local -> ssh user@remote_server.
+    // for github, use `ssh -T git@github.com` to test
+
+
+
 
 
 

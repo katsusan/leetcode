@@ -1,6 +1,12 @@
 doc：   https://git-scm.com/docs
         https://gitee.com/progit/
 
+## 0. Tricks
+
+git diff @{upstream}  // 比较当前文件与upstream分支
+git diff @ @{upstream}  //比较当前HEAD与upstream分支
+
+
 ## 1. 常用命令
     git fetch <远程主机名> <分支名>     //取回分支，本地用主机名/分支来表示该分支
     git checkout -b newBranch origin/master //基于分支origin/master创建新分支newBranch
@@ -37,7 +43,7 @@ refer: https://www.jianshu.com/p/bd73bf2f90d2
 ++++++++++++++++++++++++++++++++++++++++++++
 //github publickey
 - ssh-keygen -t rsa
-- 将生成的公钥id_rsa.pub拷贝到https://github.com/settings/keys下
+- 将生成的公钥id_rsa.pub拷贝到https://github.com/settings/keys
 - ssh git@github.com ，出现 You've successfully authenticated则表明验证ok
 ++++++++++++++++++++++++++++++++++++++++++++
 
@@ -82,4 +88,83 @@ git push origin --delete featureA   // delete remote branch
 - 测试通过后合并回 develop 分支和 master 分支，如果存在 release-xxx 分支也要合并回 release-xxx 分支
 - master 分支打 tag
 - 上线 master 代码
+
+## 4. rebase
+
+// originally, C1 → C2(master)   
+```
+$ git checkout -b experiment
+$ // do some changes and commit on experiment and master
+  // master:        C1 → C2 → C3
+  // experiment:    C1 → C2 → C4
+$ git rebase master     // C1 → C2 → C3 → C4(experiment)
+$ git checkout master
+$ git merge experiment  // C1 → C2 → C3 → C4(master/experiment)
+```
+
+// advanced rebase:   
+// originally, C1 → C2(master)
+```
+$ git checkout -b server
+$ // do some changes and commit on server and master
+  // master:    C1 → C2 → C5 → C6
+  // server:    C1 → C2 → C3 → C4
+$ git checkout -b client (from C3)
+  // do some changes and commit on client and server
+  // client:    C1 → C2 → C3 → C8 → C9
+  // server:    C1 → C2 → C3 → C4 → C10
+$ git rebase --onto master server client
+  // meaning: 取出client自server之后的提交(C8,C9)重放到master一遍,
+  // master/client: C1 → C2 → C5 → C6 → C8 → C9
+$ git rebase master server
+  // git rebase <basebranch> <topicbranch>: 将主题分支topicbranch变基到目标分支basebranch上
+  // master/client: C1 → C2 → C5 → C6 → C8 → C9
+  // server: C1 → C2 → C5 → C6 → C8 → C9 → C3 → C4 → C10
+$ git checkout master
+$ git merge server
+  // master: C1 → C2 → C5 → C6 → C8 → C9 → C3 → C4 → C10
+$ git branch -d client
+$ git branch -d server
+``` 
+
+原则: 只对尚未推送或分享给别人的本地修改执行变基操作清理历史， 从不对已推送至别处的提交执行变基操作.   
+
+
+## 5. git maintaining
+
+标签:   
+git tag -a v1.0 -m ""  // unsigned tag   
+git tag -s v1.1 -m ""  // GPG signed tag     
+
+发布:   
+git archive master --prefix="xx/" | gzip > `git describe master`.tar.gz   
+
+
+## 6. git tools
+
+```shell
+git log A..B  // 不在A而在B中的提交
+git log ^A B  // 不在A而在B中的提交,与上面等价
+git log B --not A   // 同上
+
+git log B C ^A    // 在B或C但不在A中的提交
+git log B C --not A   // 同上
+
+git log A...B   // 在A或B其中之一但不同时在A和B中, 等同于集合论中的A∪B - A∩B.
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
