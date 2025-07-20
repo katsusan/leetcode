@@ -2,7 +2,7 @@ package code
 
 import "slices"
 
-func divideArray(nums []int, k int) [][]int {
+func divideArray_2966(nums []int, k int) [][]int {
 	slices.Sort(nums)
 	arr := make([][]int, 0, len(nums)/3)
 	for i := 0; i < len(nums)-2; i += 3 {
